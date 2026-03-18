@@ -6,7 +6,7 @@ from app.helpers.config import (
     DATABASE_HOST,
     DATABASE_NAME,
     DATABASE_SSL_MODE
-)
+) 
 import ssl
 ssl_context = ssl.create_default_context()
 ssl_context.check_hostname = False
