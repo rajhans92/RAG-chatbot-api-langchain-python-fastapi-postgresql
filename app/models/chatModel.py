@@ -51,3 +51,4 @@ class MemoryEvents(Base):
     text_embedding = Column(Vector(1536), nullable=False) 
     importance_score = Column(Integer, nullable=False)  # 1 to 10
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, UploadFile, File, BackgroundTasks, HTTPException
 from fastapi.responses import StreamingResponse
-from uuid import uuid4
+import uuid
 import asyncio
-from typeing import List
+from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.helpers.databaseConnection import get_db
 from app.schemas.chatSchema import (HeaderDetail,SessionRequest, HeaderDetailOnlyUser)
@@ -79,14 +79,14 @@ async def file_upload(background_tasks: BackgroundTasks, files: List[UploadFile]
             error_files.append({"file": file.filename, "error": "File is too large"})
             continue
 
-        fileName = uuid4() + "_" + file.filename
-        s3_url = s3_service.upload_file(file.file, fileName, file.content_type, getHeaderDetail["userId"], getHeaderDetail["sessionId"], db)
+        fileName = str(uuid.uuid4()) + "_" + file.filename
+        s3_url = s3_service.upload_file(file.file, fileName, file.content_type, getHeaderDetail["userId"], getHeaderDetail["sessionId"])
 
         if not s3_url:
             error_files.append({"file": file.filename, "error": "File Upload failed"})
             continue
 
-        uploaded_filenames.append({"file": file.filename, "status": "Uploaded", "s3_url": s3_url})  
+        uploaded_filenames.append({"id":0,"file": file.filename, "status": "Uploaded", "s3_url": s3_url})  
 
     return {
         "status": "success",

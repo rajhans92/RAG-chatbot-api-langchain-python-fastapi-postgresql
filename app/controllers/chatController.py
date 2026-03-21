@@ -197,135 +197,135 @@ async def callMidSummarization(sessionId):
         raise HTTPException(status_code=500, detail="Error during mid-conversation summarization: " + str(e))
     
 
-    async def callMemoryEvents(userId, sessionId):
-        try:
-            async with sessionLocal() as db:
+async def callMemoryEvents(userId, sessionId):
+    try:
+        async with sessionLocal() as db:
 
-                # 1️⃣ Fetch recent conversation
-                query = (
-                    select(ChatMessage)
-                    .where(ChatMessage.session_id == sessionId)
-                    .order_by(ChatMessage.message_order.desc())
-                    .limit(10)
-                )
+            # 1️⃣ Fetch recent conversation
+            query = (
+                select(ChatMessage)
+                .where(ChatMessage.session_id == sessionId)
+                .order_by(ChatMessage.message_order.desc())
+                .limit(10)
+            )
 
-                result = await db.execute(query)
-                messages = result.scalars().all()
+            result = await db.execute(query)
+            messages = result.scalars().all()
 
-                if not messages:
-                    return
+            if not messages:
+                return
 
-                conversation_text = "\n".join(
-                    f"{msg.role}: {msg.message}" for msg in messages
-                )
+            conversation_text = "\n".join(
+                f"{msg.role}: {msg.message}" for msg in messages
+            )
 
-                # 2️⃣ LLM extraction (normalized format)
-                memory_prompt = f"""
-                Extract important long-term user facts.
+            # 2️⃣ LLM extraction (normalized format)
+            memory_prompt = f"""
+            Extract important long-term user facts.
 
-                Rules:
-                - Only extract facts about the user
-                - Avoid duplicates
-                - Normalize sentences (e.g., "My name is X" → "User name is X")
-                - Each fact must be short and atomic
-                - Return as plain bullet list
+            Rules:
+            - Only extract facts about the user
+            - Avoid duplicates
+            - Normalize sentences (e.g., "My name is X" → "User name is X")
+            - Each fact must be short and atomic
+            - Return as plain bullet list
 
-                Conversation:
-                {conversation_text}
-                """
+            Conversation:
+            {conversation_text}
+            """
 
-                response = await model.ainvoke(memory_prompt)
-                memory_text = response.content if response else ""
+            response = await model.ainvoke(memory_prompt)
+            memory_text = response.content if response else ""
 
-                if not memory_text:
-                    return
+            if not memory_text:
+                return
 
-                # 3️⃣ Parse bullet list
-                memories = [
-                    line.strip("- ").strip()
-                    for line in memory_text.split("\n")
-                    if line.strip()
-                ]
+            # 3️⃣ Parse bullet list
+            memories = [
+                line.strip("- ").strip()
+                for line in memory_text.split("\n")
+                if line.strip()
+            ]
 
-                for mem in memories:
+            for mem in memories:
 
-                    # -------------------------------
-                    # 4️⃣ Exact duplicate check
-                    # -------------------------------
-                    existing_exact = await db.execute(
-                        select(MemoryEvents).where(
-                            MemoryEvents.user_id == userId,
-                            MemoryEvents.text == mem
-                        )
+                # -------------------------------
+                # 4️⃣ Exact duplicate check
+                # -------------------------------
+                existing_exact = await db.execute(
+                    select(MemoryEvents).where(
+                        MemoryEvents.user_id == userId,
+                        MemoryEvents.text == mem
                     )
+                )
 
-                    if existing_exact.scalars().first():
-                        continue  # skip exact duplicate
+                if existing_exact.scalars().first():
+                    continue  # skip exact duplicate
 
-                    # -------------------------------
-                    # 5️⃣ Generate embedding
-                    # -------------------------------
-                    query_vector = embeddedText(mem)
+                # -------------------------------
+                # 5️⃣ Generate embedding
+                # -------------------------------
+                query_vector = embeddedText(mem)
 
-                    # -------------------------------
-                    # 6️⃣ Semantic similarity search (TOP 1)
-                    # -------------------------------
-                    stmt = (
-                        select(MemoryEvents)
-                        .where(MemoryEvents.user_id == userId)
-                        .order_by(
+                # -------------------------------
+                # 6️⃣ Semantic similarity search (TOP 1)
+                # -------------------------------
+                stmt = (
+                    select(MemoryEvents)
+                    .where(MemoryEvents.user_id == userId)
+                    .order_by(
+                        MemoryEvents.text_embedding.cosine_distance(query_vector)
+                    )
+                    .limit(1)
+                )
+
+                result = await db.execute(stmt)
+                nearest = result.scalars().first()
+
+                # -------------------------------
+                # 7️⃣ Semantic dedup / update
+                # -------------------------------
+                if nearest:
+                    distance_stmt = (
+                        select(
                             MemoryEvents.text_embedding.cosine_distance(query_vector)
                         )
-                        .limit(1)
+                        .where(MemoryEvents.id == nearest.id)
                     )
 
-                    result = await db.execute(stmt)
-                    nearest = result.scalars().first()
+                    dist_result = await db.execute(distance_stmt)
+                    distance = dist_result.scalar()
 
-                    # -------------------------------
-                    # 7️⃣ Semantic dedup / update
-                    # -------------------------------
-                    if nearest:
-                        distance_stmt = (
-                            select(
-                                MemoryEvents.text_embedding.cosine_distance(query_vector)
-                            )
-                            .where(MemoryEvents.id == nearest.id)
+                    similarity = 1 - distance if distance is not None else 0
+
+                    if similarity >= SIMILARITY_THRESHOLD:
+                        # 🔁 UPDATE existing memory instead of inserting
+                        nearest.text = mem
+                        nearest.text_embedding = query_vector
+                        nearest.updated_at = datetime.utcnow()
+                        nearest.importance_score = min(
+                            (nearest.importance_score or 5) + 1, 10
                         )
+                        continue
 
-                        dist_result = await db.execute(distance_stmt)
-                        distance = dist_result.scalar()
+                # -------------------------------
+                # 8️⃣ Insert new memory
+                # -------------------------------
+                new_memory = MemoryEvents(
+                    user_id=userId,
+                    text=mem,
+                    text_embedding=query_vector,
+                    importance_score=5,
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
+                )
 
-                        similarity = 1 - distance if distance is not None else 0
+                db.add(new_memory)
 
-                        if similarity >= SIMILARITY_THRESHOLD:
-                            # 🔁 UPDATE existing memory instead of inserting
-                            nearest.text = mem
-                            nearest.text_embedding = query_vector
-                            nearest.updated_at = datetime.utcnow()
-                            nearest.importance_score = min(
-                                (nearest.importance_score or 5) + 1, 10
-                            )
-                            continue
+            # 9️⃣ Commit once (important for performance)
+            await db.commit()
 
-                    # -------------------------------
-                    # 8️⃣ Insert new memory
-                    # -------------------------------
-                    new_memory = MemoryEvents(
-                        user_id=userId,
-                        text=mem,
-                        text_embedding=query_vector,
-                        importance_score=5,
-                        created_at=datetime.utcnow(),
-                        updated_at=datetime.utcnow()
-                    )
+            print(f"Memory events processed for user {userId}")
 
-                    db.add(new_memory)
-
-                # 9️⃣ Commit once (important for performance)
-                await db.commit()
-
-                print(f"Memory events processed for user {userId}")
-
-        except Exception as e:
-            print("Error during memory event creation:", e)
+    except Exception as e:
+        print("Error during memory event creation:", e)

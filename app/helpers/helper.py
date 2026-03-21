@@ -1,5 +1,5 @@
 from fastapi import Header, HTTPException
-from app.schema.chatbotSchema import (HeaderDetail, HeaderDetailOnlyUser)
+from app.schemas.chatSchema import (HeaderDetail, HeaderDetailOnlyUser)
 
 def get_header_with_session_details(header: HeaderDetail =  Header(...)):     
     try:

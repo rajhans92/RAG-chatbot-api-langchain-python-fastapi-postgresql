@@ -11,7 +11,7 @@ from app.helpers.exception import (
     global_exception_handler
 )
 from app.helpers.databaseConnection import engine, Base
-from app.routers import (chatbot)
+from app.routers import (chatRouter)
 
 app  = FastAPI()
 
@@ -26,7 +26,7 @@ async def on_startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-app.include_router(chatbot.router, prefix='/{API_BASE_NAME}/{API_VERSION}')
+app.include_router(chatRouter.router, prefix='/{API_BASE_NAME}/{API_VERSION}')
 
 @app.get("/")
 def read_root():
