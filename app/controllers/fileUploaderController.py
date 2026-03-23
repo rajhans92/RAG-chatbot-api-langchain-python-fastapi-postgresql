@@ -17,8 +17,8 @@ class S3Service:
     def upload_file(self, file_obj, object_name, content_type, user_id, session_id):
         try:
             key = f"{user_id}/{session_id}/{object_name}"
-            self.s3.upload_fileobj(file_obj, self.bucket_name, key, ExtraArgs={"ContentType": content_type, "ACL": "public-read"})
-            return f"https://{self.bucket_name}.s3.amazonaws.com/{key}"
+            self.s3.upload_fileobj(file_obj, self.bucket_name, key, ExtraArgs={"ContentType": content_type})
+            return f"https://{self.bucket_name}.s3.{AWS_REGION}.amazonaws.com/{key}"
         except ClientError as e:
             print(f"S3 Upload Error: {e}")
             return None
