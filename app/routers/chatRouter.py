@@ -27,7 +27,8 @@ from app.controllers.semanticSearchController import (
     sementicSearch
 )
 from app.controllers.fileUploaderController import (
-    s3_service
+    s3Service,
+    storeFiledetails
 )
 
 
@@ -80,13 +81,18 @@ async def file_upload(background_tasks: BackgroundTasks, files: List[UploadFile]
             continue
 
         fileName = str(uuid.uuid4()) + "_" + file.filename
-        s3_url = s3_service.upload_file(file.file, fileName, file.content_type, getHeaderDetail["userId"], getHeaderDetail["sessionId"])
+        s3_url = s3Service.upload_file(file.file, fileName, file.content_type, getHeaderDetail["userId"], getHeaderDetail["sessionId"])
 
         if not s3_url:
             error_files.append({"file": file.filename, "error": "File Upload failed"})
             continue
 
-        uploaded_filenames.append({"id":0,"file": file.filename, "status": "Uploaded", "s3_url": s3_url})  
+        fileId = await storeFiledetails(file.filename, fileName,s3_url, file.content_type, getHeaderDetail["userId"], getHeaderDetail["sessionId"], db)
+        if not fileId:
+            error_files.append({"file": file.filename, "error": "failed while storing file"})
+            #delete file from s3 if db entry fails to maintain consistency
+            continue
+        uploaded_filenames.append({"id":fileId,"file": file.filename, "status": "Uploaded", "s3_url": s3_url})  
 
     return {
         "status": "success",
