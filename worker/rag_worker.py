@@ -1,11 +1,13 @@
 import boto3
-from botocore.config import Config
-from botocore.exceptions import ClientError
 from io import BytesIO
-import time
-
 from db import SessionLocal
+import tempfile
 from config import (AWS_ACCESS_KEY, AWS_SECRET_KEY, AWS_REGION, AWS_BUCKET_NAME, MAX_CHUNK_SIZE)
+from doc_parsere import parse_document
+
+MAX_MEMORY_SIZE = 20 * 1024 * 1024  # 20MB threshold
+CHUNK_SIZE = 500      # characters
+CHUNK_OVERLAP = 100   # overlap for context
 
 s3_client = boto3.client(
     "s3",
@@ -24,7 +26,7 @@ def process_file(message):
         file_stream = download_from_s3(message["s3_url"])
 
         # 2. Parse
-        chunks = parse_document(file_stream)
+        chunks = parse_document(file_stream,message["file_type"])
 
         # 3. Generate embeddings
         embeddings = create_embeddings(chunks)
@@ -42,45 +44,39 @@ def process_file(message):
         db.close()
 
 
-def download_from_s3(s3_key) -> BytesIO:
+def download_from_s3(s3_key: str):
     """
-    Download file from S3 into memory (BytesIO).
-    Best for small/medium files.
+    Smart downloader:
+    - Small files → memory
+    - Large files → temp file
     """
     try:
+        # Get metadata first
+        head = s3_client.head_object(Bucket=BUCKET_NAME, Key=s3_key)
+        file_size = head["ContentLength"]
+
         response = s3_client.get_object(Bucket=BUCKET_NAME, Key=s3_key)
 
-        file_stream = BytesIO()
-        
-        # Stream read (avoids loading everything at once)
-        for chunk in response["Body"].iter_chunks(chunk_size=MAX_CHUNK_SIZE):  # 1MB chunks
-            if chunk:
-                file_stream.write(chunk)
+        # SMALL FILE → MEMORY
+        if file_size <= MAX_MEMORY_SIZE:
+            file_stream = BytesIO()
+            for chunk in response["Body"].iter_chunks(chunk_size=1024 * 1024):
+                if chunk:
+                    file_stream.write(chunk)
 
-        file_stream.seek(0)
-        return file_stream
+            file_stream.seek(0)
+            return file_stream
 
-    except ClientError as e:
-        error_code = e.response["Error"]["Code"]
-
-        if error_code == "NoSuchKey":
-            raise Exception(f"File not found in S3: {s3_key}")
-        elif error_code == "AccessDenied":
-            raise Exception(f"Access denied for S3 key: {s3_key}")
+        # LARGE FILE → TEMP FILE
         else:
-            raise Exception(f"S3 download failed: {str(e)}")
+            tmp_file = tempfile.NamedTemporaryFile(delete=False)
+
+            for chunk in response["Body"].iter_chunks(chunk_size=1024 * 1024):
+                if chunk:
+                    tmp_file.write(chunk)
+
+            tmp_file.flush()
+            return tmp_file.name  # return file path
 
     except Exception as e:
-        raise Exception(f"Unexpected error downloading {s3_key}: {str(e)}")
-
-def parse_document(file_stream):
-    # Implement document parsing logic here (e.g., using PyPDF2, python-docx, etc.)
-    pass
-
-def create_embeddings(chunks):
-    # Implement embedding generation logic here (e.g., using OpenAI API)
-    pass
-
-def save_embeddings(db, embeddings):
-    # Implement logic to save embeddings in the database (e.g., using SQLAlchemy)
-    pass
+        raise Exception(f"Error downloading {s3_key}: {str(e)}")
