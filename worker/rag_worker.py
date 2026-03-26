@@ -4,6 +4,7 @@ from db import SessionLocal
 import tempfile
 from config import (AWS_ACCESS_KEY, AWS_SECRET_KEY, AWS_REGION, AWS_BUCKET_NAME, MAX_CHUNK_SIZE)
 from doc_parsere import parse_document
+from embedding import create_embeddings
 
 MAX_MEMORY_SIZE = 20 * 1024 * 1024  # 20MB threshold
 CHUNK_SIZE = 500      # characters
@@ -29,7 +30,7 @@ def process_file(message):
         chunks = parse_document(file_stream,message["file_type"])
 
         # 3. Generate embeddings
-        embeddings = create_embeddings(chunks)
+        embeddings = create_embeddings(chunks, message)
 
         # 4. Store in DB (pgvector)
         save_embeddings(db, embeddings)
