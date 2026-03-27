@@ -22,12 +22,16 @@ testData = [{
                 "id": 5,
                 "file": "Rich Dad Poor Dad.docx",
                 "status": "Uploaded",
-                "s3_url": "1/1/12d15194-d3d8-4f71-9632-92931a859a37_Rich Dad Poor Dad.docx"
+                "s3_url": "1/1/12d15194-d3d8-4f71-9632-92931a859a37_Rich Dad Poor Dad.docx",
+                "file_type": "docx"
             },
             {
                 "id": 6,
                 "file": "GenAI.pdf",
                 "status": "Uploaded",
-                "s3_url": "1/1/66d5f62d-d0ce-442b-9bd9-627cc71bb581_GenAI.pdf"
+                "s3_url": "1/1/66d5f62d-d0ce-442b-9bd9-627cc71bb581_GenAI.pdf",
+                "file_type": "pdf"
             }
         ]
+
+worker(testData)
