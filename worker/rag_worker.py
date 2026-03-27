@@ -4,7 +4,7 @@ from db import SessionLocal
 import tempfile
 from config import (AWS_ACCESS_KEY, AWS_SECRET_KEY, AWS_REGION, AWS_BUCKET_NAME, MAX_CHUNK_SIZE)
 from doc_parsere import parse_document
-from embedding import create_embeddings
+from embedding import create_embeddings, summarize_chunks
 from sqlalchemy import text
 
 MAX_MEMORY_SIZE = 20 * 1024 * 1024  # 20MB threshold
@@ -30,11 +30,17 @@ def process_file(message):
         # 2. Parse
         chunks = parse_document(file_stream,message["file_type"])
 
-        # 3. Generate embeddings
+        # 3. Summarize
+        file_summarization= summarize_chunks(chunks)
+
+        # 4. Generate embeddings
         embeddings = create_embeddings(chunks, message)
 
-        # 4. Store in DB (pgvector)
+        # 5. Store in DB (pgvector)
         save_embeddings(db, embeddings)
+
+        # 6 Update document summary and status
+        save_document_status(db, file_summarization, message["id"])
 
     except Exception as e:
         db.rollback()
@@ -42,6 +48,7 @@ def process_file(message):
 
     finally:
         db.close()
+        print("Database session closed.")
 
 
 def download_from_s3(s3_key: str):
@@ -113,4 +120,17 @@ def save_embeddings(db, embeddings):
     for i in range(0, len(embeddings), BATCH_SIZE):
         db.execute(insert_query, embeddings[i:i+BATCH_SIZE])
 
+    db.commit()
+
+def save_document_status(db, file_summarization, document_id):
+    """
+    Update document summary and status
+    """
+    update_query = text("""
+        UPDATE documents
+        SET document_summary = :summary, status = 'completed'
+        WHERE id = :document_id
+    """)
+
+    db.execute(update_query, {"summary": "\n".join(file_summarization), "document_id": document_id})
     db.commit()
