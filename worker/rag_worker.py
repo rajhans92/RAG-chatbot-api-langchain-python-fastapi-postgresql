@@ -5,6 +5,7 @@ import tempfile
 from config import (AWS_ACCESS_KEY, AWS_SECRET_KEY, AWS_REGION, AWS_BUCKET_NAME, MAX_CHUNK_SIZE)
 from doc_parsere import parse_document
 from embedding import create_embeddings
+from sqlalchemy import text
 
 MAX_MEMORY_SIZE = 20 * 1024 * 1024  # 20MB threshold
 CHUNK_SIZE = 500      # characters
@@ -34,8 +35,6 @@ def process_file(message):
 
         # 4. Store in DB (pgvector)
         save_embeddings(db, embeddings)
-
-        db.commit()
 
     except Exception as e:
         db.rollback()
@@ -81,3 +80,37 @@ def download_from_s3(s3_key: str):
 
     except Exception as e:
         raise Exception(f"Error downloading {s3_key}: {str(e)}")
+    
+
+def save_embeddings(db, embeddings):
+    """
+    Save embeddings to DB (pgvector)
+    """
+
+    BATCH_SIZE = 100
+
+    insert_query = text("""
+        INSERT INTO document_chunks (
+            document_id,
+            chunk_text,
+            chunk_embedding,
+            chunk_order,
+            chunk_metadata,
+            token_count,
+            created_at
+        )
+        VALUES (
+            :document_id,
+            :chunk_text,
+            :chunk_embedding,
+            :chunk_order,
+            :chunk_metadata,
+            :token_count,
+            NOW()
+        )
+    """)
+
+    for i in range(0, len(embeddings), BATCH_SIZE):
+        db.execute(insert_query, embeddings[i:i+BATCH_SIZE])
+
+    db.commit()
