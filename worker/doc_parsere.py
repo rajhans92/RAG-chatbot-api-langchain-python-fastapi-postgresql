@@ -74,7 +74,7 @@ def parse_document(file_obj, file_type: str) -> List[str]:
 
     return chunk_text(text)
 
-def chunk_text(text: str, chunk_size=500, overlap=100):
+def chunk_text(text: str, chunk_size=1000, overlap=100):
     chunks = []
     start = 0
 

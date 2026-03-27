@@ -1,6 +1,8 @@
 from typing import List, Dict
 import json
 from langchain_openai import OpenAIEmbeddings
+from langchain.chat_models import init_chat_model
+from langchain_core.messages import HumanMessage
 
 # CONFIG
 BATCH_SIZE = 20
@@ -12,6 +14,7 @@ embedding_model = OpenAIEmbeddings(
     model="text-embedding-3-small"  # cost-effective
 )
 
+llm = init_chat_model("gpt-4o-mini")
 
 def create_embeddings(chunks: List[str], message) -> List[Dict]:
     """
@@ -36,3 +39,14 @@ def create_embeddings(chunks: List[str], message) -> List[Dict]:
             })
 
     return results
+
+def summarize_chunks(chunks):
+    summaries = []
+
+    for chunk in chunks[:20]:  # limit for cost control
+        prompt = f"Summarize this text:\n{chunk}"
+
+        response = llm.invoke([HumanMessage(content=prompt)])
+        summaries.append(response.content)
+
+    return summaries
