@@ -1,10 +1,10 @@
 import boto3
 from io import BytesIO
-from db import SessionLocal
+from worker.db import SessionLocal
 import tempfile
-from config import (AWS_ACCESS_KEY, AWS_SECRET_KEY, AWS_REGION, AWS_BUCKET_NAME, MAX_CHUNK_SIZE)
-from doc_parsere import parse_document
-from embedding import create_embeddings, summarize_chunks
+from worker.config import (AWS_ACCESS_KEY, AWS_SECRET_KEY, AWS_REGION, AWS_BUCKET_NAME, MAX_CHUNK_SIZE)
+from worker.doc_parsere import parse_document
+from worker.embedding import create_embeddings, summarize_chunks
 from sqlalchemy import text
 
 MAX_MEMORY_SIZE = 20 * 1024 * 1024  # 20MB threshold
@@ -22,7 +22,6 @@ BUCKET_NAME = AWS_BUCKET_NAME
 
 def process_file(message):
     db = SessionLocal()
-
     try:
         # 1. Download file from S3
         file_stream = download_from_s3(message["s3_url"])
@@ -58,6 +57,8 @@ def download_from_s3(s3_key: str):
     - Large files → temp file
     """
     try:
+        s3_key = extract_s3_key(s3_key)
+        print(f"Downloading {s3_key} from S3...")
         # Get metadata first
         head = s3_client.head_object(Bucket=BUCKET_NAME, Key=s3_key)
         file_size = head["ContentLength"]
@@ -134,3 +135,9 @@ def save_document_status(db, file_summarization, document_id):
 
     db.execute(update_query, {"summary": "\n".join(file_summarization), "document_id": document_id})
     db.commit()
+
+from urllib.parse import urlparse
+
+def extract_s3_key(s3_url: str) -> str:
+    parsed = urlparse(s3_url)
+    return parsed.path.lstrip("/")  # remove leading '/'
