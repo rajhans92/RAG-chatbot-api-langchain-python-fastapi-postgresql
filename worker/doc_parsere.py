@@ -18,7 +18,8 @@ def parse_document(file_obj, file_type: str) -> List[str]:
     # -------------------
     # PDF
     # -------------------
-    if file_type == "pdf":
+    print("Parsing document of type:------------> ", file_type)
+    if file_type == "application/pdf":
         if isinstance(file_obj, BytesIO):
             file_obj.seek(0)
         reader = PdfReader(file_obj)
@@ -34,7 +35,7 @@ def parse_document(file_obj, file_type: str) -> List[str]:
     # -------------------
     # DOCX
     # -------------------
-    elif file_type == "docx":
+    elif file_type == "application/msword" or file_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document" or file_type == "application/vndopenxmlformats-officedocumentwordprocessingmldocument":
         if isinstance(file_obj, BytesIO):
             file_obj.seek(0)
 
@@ -44,7 +45,7 @@ def parse_document(file_obj, file_type: str) -> List[str]:
     # -------------------
     # TXT
     # -------------------
-    elif file_type == "txt":
+    elif file_type == "text/plain" or file_type == "text/csv":
         if isinstance(file_obj, BytesIO):
             file_obj.seek(0)
             text = file_obj.read().decode("utf-8", errors="ignore")
@@ -55,7 +56,7 @@ def parse_document(file_obj, file_type: str) -> List[str]:
     # -------------------
     # IMAGE (OCR)
     # -------------------
-    elif file_type in ["png", "jpg", "jpeg"]:
+    elif file_type in ["image/jpeg", "image/png", "image/webp", "image/jpg", "image/gif"]:
         if isinstance(file_obj, BytesIO):
             file_obj.seek(0)
             image = Image.open(file_obj)
