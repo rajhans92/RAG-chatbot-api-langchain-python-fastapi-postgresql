@@ -30,7 +30,7 @@ from app.controllers.fileUploaderController import (
     s3Service,
     storeFiledetails
 )
-
+from worker.listener import worker
 
 router = APIRouter(prefix="/chatbot", tags=["chatbot"])
 
@@ -92,7 +92,9 @@ async def file_upload(background_tasks: BackgroundTasks, files: List[UploadFile]
             error_files.append({"file": file.filename, "error": "failed while storing file"})
             #delete file from s3 if db entry fails to maintain consistency
             continue
-        uploaded_filenames.append({"id":fileId,"file": file.filename, "status": "Uploaded", "s3_url": s3_url})  
+        uploaded_filenames.append({"id":fileId,"file": file.filename, "status": "Uploaded", "s3_url": s3_url, "file_type":file.content_type})  
+
+    background_tasks.add_task(worker, uploaded_filenames)  # Process files in the background
 
     return {
         "status": "success",
