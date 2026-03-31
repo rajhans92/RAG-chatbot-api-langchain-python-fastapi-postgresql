@@ -7,13 +7,16 @@ from app.models.chatModel import (
     ChatSummary,
     MemoryEvents
 )
+from app.models.documentModel import (
+    DocumentChunks
+)
 load_dotenv()
 print(f"Using embedding model: {EMBADDING_MODEL}")
 embeddings = OpenAIEmbeddings(
     model=EMBADDING_MODEL
 )
 
-async def sementicSearch(message, sessionId, userId, db):
+async def sementicSearch(message, sessionId, userId, db, documentId=[]):
     
     try:
         listOfMessage = []
@@ -43,6 +46,20 @@ async def sementicSearch(message, sessionId, userId, db):
         
         for r in results:
             listOfMessage.append(r.summary_text)
+
+        # If documentId is provided, filter the results based on documentId       
+        if documentId: 
+            stmt = (
+                select(DocumentChunks)
+                .where(DocumentChunks.document_id.in_(documentId))
+                .order_by(DocumentChunks.chunk_embedding.cosine_distance(query_vector))
+                .limit(4)
+            )
+
+            result = await db.execute(stmt)
+            results = result.scalars().all()
+            for r in results:
+                listOfMessage.append(r.chunk_text)
 
         return listOfMessage
     except Exception as e:

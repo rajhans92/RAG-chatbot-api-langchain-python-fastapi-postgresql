@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
 
 class HeaderDetail(BaseModel):
@@ -12,3 +12,7 @@ class HeaderDetailOnlyUser(BaseModel):
 class SessionRequest(BaseModel):
     title: str
     modelName: str
+
+class MessageRequest(BaseModel):
+    message: str
+    documentId: Optional[List[int]] = None
