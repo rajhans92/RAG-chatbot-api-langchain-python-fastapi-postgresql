@@ -5,7 +5,7 @@ import asyncio
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.helpers.databaseConnection import get_db
-from app.schemas.chatSchema import (HeaderDetail,SessionRequest, HeaderDetailOnlyUser)
+from app.schemas.chatSchema import (HeaderDetail,SessionRequest, HeaderDetailOnlyUser, MessageRequest)
 from app.helpers.config import (
     LAST_N_MESSAGES,
     NO_OF_ROW_SUMMARY,
@@ -21,7 +21,8 @@ from app.controllers.chatController import (
     listofSummariazationMessages,
     prepareChatPromptTemplate,
     stream_llm_response,
-    chatSessionIdCreate
+    chatSessionIdCreate,
+    getFileList
 )
 from app.controllers.semanticSearchController import (
     sementicSearch
@@ -49,20 +50,20 @@ async def new_chat_session(sessionData: SessionRequest, getHeaderDetail:HeaderDe
     }
 
 @router.post("/")
-async def chatbot(message: str, getHeaderDetail: HeaderDetail = Depends(get_header_with_session_details), db: AsyncSession = Depends(get_db)):
+async def chatbot(requestBody: MessageRequest, getHeaderDetail: HeaderDetail = Depends(get_header_with_session_details), db: AsyncSession = Depends(get_db)):
     last_n_messages = LAST_N_MESSAGES
     noOfRow = NO_OF_ROW_SUMMARY
     listofMessages, summariazationMessage, sementicSearchResult = await asyncio.gather(
         chatHistoryList(last_n_messages, getHeaderDetail["sessionId"], db),
         listofSummariazationMessages(noOfRow, getHeaderDetail["sessionId"], db),
-        sementicSearch(message, getHeaderDetail["sessionId"], getHeaderDetail["userId"], db)
+        sementicSearch(requestBody.message,getHeaderDetail["sessionId"], getHeaderDetail["userId"], db, requestBody.documentId)
     )
 
-    preparedTemplate = prepareChatPromptTemplate(message,listofMessages, summariazationMessage, sementicSearchResult) 
+    preparedTemplate = prepareChatPromptTemplate(requestBody.message,listofMessages, summariazationMessage, sementicSearchResult) 
 
     # Server-Sent Events (SSE)
     return StreamingResponse(
-        stream_llm_response(preparedTemplate, getHeaderDetail["userId"], getHeaderDetail["sessionId"], message, db),
+        stream_llm_response(preparedTemplate, getHeaderDetail["userId"], getHeaderDetail["sessionId"], requestBody.message, db),
         media_type="text/event-stream"
     )
 
@@ -103,4 +104,18 @@ async def file_upload(background_tasks: BackgroundTasks, files: List[UploadFile]
             "uploaded_files": uploaded_filenames,
             "error_files": error_files
         }
+    }
+
+@router.get("/files")
+async def list_uploaded_files(getHeaderDetail: HeaderDetail = Depends(get_header_with_session_details), db: AsyncSession = Depends(get_db)):
+    userId = getHeaderDetail["userId"]
+    sessionId = getHeaderDetail["sessionId"]
+
+    # Fetch files from the database based on userId and sessionId
+    files = await getFileList(userId, sessionId, db)
+
+    return {
+        "status": "success",
+        "message": "List of uploaded files",
+        "response": files
     }
