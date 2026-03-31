@@ -19,6 +19,9 @@ from app.models.chatModel import (
     ChatSession,
     MemoryEvents
 )
+from app.models.documentModel import (
+    Documents
+)
 load_dotenv()
 
 
@@ -329,3 +332,30 @@ async def callMemoryEvents(userId, sessionId):
 
     except Exception as e:
         print("Error during memory event creation:", e)
+
+async def getFileList(userId, sessionId, db):
+    try:
+        query = (
+            select(Documents)
+            .filter(Documents.user_id == userId, Documents.session_id == sessionId, Documents.status == "completed")
+            .order_by(Documents.created_at.desc())
+        )
+        result = await db.execute(query)
+        files = result.scalars().all()
+
+        file_list = []
+        for file in files:
+            file_list.append({
+                "id": file.id,
+                "document_name": file.document_name,
+                "document_unique_name": file.document_unique_name,
+                "document_type": file.document_type,
+                "storage_path": file.storage_path,
+                "status": file.status,
+                "created_at": file.created_at
+            })
+
+        return file_list
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Error fetching file list: " + str(e))
