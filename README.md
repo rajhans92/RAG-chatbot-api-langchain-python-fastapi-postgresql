@@ -257,9 +257,10 @@ Please fork the repo and submit a pull request.
 # 👨‍💻 Author
 
 **Rupesh Rajhans**
+```
 rupesh.rajhans92@gmail.com
 (Software Engineer | GenAI Developer | AI SaaS Builder)
-
+```
 ---
 
 ## ⭐ Support
