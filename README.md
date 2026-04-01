@@ -61,14 +61,42 @@ FastAPI API Layer
 
 ```
 app/
-├── controllers/        # API routes
-├── services/           # Business logic
-├── models/             # DB models
-├── schemas/            # Pydantic schemas
-├── core/               # Config, DB, security
-├── utils/              # Helpers
-├── workers/            # Background jobs
-└── main.py             # Entry point
+├── controllers/                 # Handles incoming requests (business logic entry)
+│   ├── chatController.py
+│   ├── fileUploaderController.py
+│   └── semanticSearchController.py
+│
+├── helpers/                     # Utility & shared helper functions
+│   ├── config.py
+│   ├── databaseConnection.py
+│   ├── exception.py
+│   └── helper.py
+│
+├── models/                      # Database models (ORM)
+│   ├── chatModel.py
+│   └── documentModel.py
+│
+├── routers/                     # API route definitions
+│   └── chatRouter.py
+│
+├── schemas/                     # Pydantic schemas (request/response validation)
+│   └── chatSchema.py
+│
+├── worker/                      # Background processing (RAG pipeline & async jobs)
+│   ├── config.py
+│   ├── db.py
+│   ├── doc_parser.py
+│   ├── embedding.py
+│   ├── listener.py
+│   ├── rag_worker.py
+│   └── temp/                    # Temporary files / intermediate processing
+│
+├── main.py                      # FastAPI application entry point
+│
+.env                             # Environment variables
+.gitignore
+README.md
+myenv/                           # Virtual environment (should be gitignored)
 ```
 
 ---
