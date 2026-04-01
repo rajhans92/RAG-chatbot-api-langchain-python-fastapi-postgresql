@@ -1,4 +1,5 @@
-# 🚀 RAG Chatbot API (FastAPI + LangChain + PostgreSQL)
+# 🤖 RAG Chatbot API
+# 🚀 (FastAPI + LangChain + PostgreSQL)
 
 A production-grade **Retrieval-Augmented Generation (RAG)** backend built with **FastAPI**, **LangChain**, and **PostgreSQL (pgvector)**.
 This project enables users to upload documents, process them into embeddings, and perform intelligent conversational Q&A using LLMs.
@@ -96,7 +97,6 @@ app/
 .env                             # Environment variables
 .gitignore
 README.md
-myenv/                           # Virtual environment (should be gitignored)
 ```
 
 ---
@@ -106,7 +106,7 @@ myenv/                           # Virtual environment (should be gitignored)
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/your-username/rag-chatbot-api.git
+git clone https://github.com/rajhans92/RAG-chatbot-api-langchain-python-fastapi-postgresql.git
 cd rag-chatbot-api
 ```
 
@@ -129,11 +129,32 @@ pip install -r requirements.txt
 Create `.env` file:
 
 ```env
-OPENAI_API_KEY=your_key
-DATABASE_URL=postgresql+asyncpg://user:password@localhost/dbname
-AWS_ACCESS_KEY=your_key
-AWS_SECRET_KEY=your_secret
-S3_BUCKET=your_bucket
+API_BASE_NAME=api
+API_VERSION=v1
+DATABASE_USER=postgres
+DATABASE_PASSWORD=postgres
+DATABASE_HOST=localhost
+DATABASE_NAME=chatbotdb
+DATABASE_SSL_MODE=false
+JWT_SECRET_KEY=
+JWT_ALGORITHM=HS256
+JWT_TOKEN_TIME_HOURS=5
+LLM_MODEL=gpt-4.1
+OPENAI_API_KEY=
+CHUNK_SIZE=1000
+CHUNK_OVERLAP=200
+EMBADDING_MODEL=text-embedding-3-small
+LAST_N_MESSAGES=5
+NO_OF_ROW_SUMMARY=5
+SIMILARITY_THRESHOLD=0.85
+
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+AWS_REGION=
+AWS_BUCKET_NAME=
+ALLOWED_TYPES=application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vndopenxmlformats-officedocumentwordprocessingmldocument,text/plain,text/csv,application/json
+MAX_FILE_SIZE=10485760
+MAX_CHUNK_SIZE=1048576
 ```
 
 ---
@@ -202,41 +223,6 @@ To reduce cost & latency:
 * ✅ Limit search to **recent/session documents**
 * ✅ Cache embeddings/results
 * ✅ Use top-k retrieval instead of full scan
-
----
-
-## 📡 API Endpoints
-
-### Upload File
-
-```http
-POST /upload
-```
-
-### Ask Question
-
-```http
-POST /chat
-```
-
-### Get Documents
-
-```http
-GET /documents
-```
-
----
-
-## 🧪 Example Request
-
-```json
-POST /chat
-
-{
-  "session_id": "abc123",
-  "query": "Summarize my uploaded documents"
-}
-```
 
 ---
 
