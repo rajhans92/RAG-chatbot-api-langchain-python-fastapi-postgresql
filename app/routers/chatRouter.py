@@ -21,6 +21,7 @@ from app.controllers.chatController import (
     listofSummariazationMessages,
     prepareChatPromptTemplate,
     stream_llm_response,
+    normal_llm_response,
     chatSessionIdCreate,
     getFileList
 )
@@ -66,6 +67,70 @@ async def chatbot(requestBody: MessageRequest, getHeaderDetail: HeaderDetail = D
         stream_llm_response(preparedTemplate, getHeaderDetail["userId"], getHeaderDetail["sessionId"], requestBody.message, db),
         media_type="text/event-stream"
     )
+
+@router.post("/evaluation")
+async def chatbot(
+    requestBody: MessageRequest,
+    getHeaderDetail: HeaderDetail = Depends(
+        get_header_with_session_details
+    ),
+    db: AsyncSession = Depends(get_db)
+):
+    last_n_messages = LAST_N_MESSAGES
+    noOfRow = NO_OF_ROW_SUMMARY
+
+    sessionId = getHeaderDetail["sessionId"]
+    userId = getHeaderDetail["userId"]
+
+    # Step 1: Fetch chat history
+    listofMessages = await chatHistoryList(
+        last_n_messages,
+        sessionId,
+        db
+    )
+
+    # Step 2: Fetch summarization messages
+    summariazationMessage = await listofSummariazationMessages(
+        noOfRow,
+        sessionId,
+        db
+    )
+
+    # Step 3: Perform semantic search
+    sementicSearchResult = await sementicSearch(
+        requestBody.message,
+        sessionId,
+        userId,
+        db,
+        requestBody.documentId
+    )
+
+    # Step 4: Prepare prompt
+    preparedTemplate = prepareChatPromptTemplate(
+        requestBody.message,
+        listofMessages,
+        summariazationMessage,
+        sementicSearchResult
+    )
+
+    # Step 5: Generate LLM response
+    response = normal_llm_response(
+        preparedTemplate,
+        userId,
+        sessionId,
+        requestBody.message,
+        db
+    )
+
+    return {
+        "status": "success",
+        "message": "Chatbot evaluation response",
+        "answer": response,
+        "chat_history": listofMessages,
+        "summarization": summariazationMessage,
+        "semantic_search": sementicSearchResult
+    }
+
 
 @router.post("/file-upload")
 async def file_upload(background_tasks: BackgroundTasks, files: List[UploadFile] = File(...),getHeaderDetail: HeaderDetail = Depends(get_header_with_session_details), db: AsyncSession = Depends(get_db)):
