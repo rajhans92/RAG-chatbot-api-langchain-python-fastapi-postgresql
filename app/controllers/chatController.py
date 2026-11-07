@@ -138,6 +138,24 @@ async def stream_llm_response(preparedTemplate, userId, sessionId, message, db):
         await asyncio.create_task(
             callMemoryEvents(userId, sessionId)
         )
+
+def normal_llm_response(preparedTemplate, userId, sessionId, message, db):
+    try:
+        full_response = ""
+
+        return model.invoke(preparedTemplate)
+
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Error during LLM processing: " + str(e))
+    
+    finally:
+        storeHitory(sessionId, message, full_response)
+
+        callMidSummarization(sessionId)
+
+        callMemoryEvents(userId, sessionId)
+    
     
 async def storeHitory(sessionId, userMessage, assistantMessage):
     try:
