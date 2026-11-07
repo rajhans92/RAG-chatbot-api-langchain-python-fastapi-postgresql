@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
+from fastapi.openapi.utils import get_openapi
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import SQLAlchemyError
 from app.helpers.config import (
@@ -61,6 +62,34 @@ async def create_database_tables():
 
 
 app.include_router(chatRouter.router, prefix=f"/{API_BASE_NAME}/{API_VERSION}")
+
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        routes=app.routes,
+    )
+
+    for path_item in openapi_schema["paths"].values():
+        operation = path_item.get("post", {})
+        if not operation.get("operationId", "").startswith("file_upload_"):
+            continue
+
+        request_schema = operation["requestBody"]["content"]["multipart/form-data"]["schema"]
+        schema_name = request_schema["$ref"].rsplit("/", 1)[-1]
+        file_item_schema = openapi_schema["components"]["schemas"][schema_name]["properties"]["files"]["items"]
+        file_item_schema["format"] = "binary"
+        file_item_schema.pop("contentMediaType", None)
+
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+
+app.openapi = custom_openapi
 
 @app.get("/")
 def read_root():
