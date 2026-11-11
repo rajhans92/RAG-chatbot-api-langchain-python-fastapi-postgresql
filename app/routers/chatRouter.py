@@ -104,7 +104,6 @@ async def chatbot(
         db,
         requestBody.documentId
     )
-
     # Step 4: Prepare prompt
     preparedTemplate = prepareChatPromptTemplate(
         requestBody.message,
@@ -128,7 +127,7 @@ async def chatbot(
         "answer": response,
         "chat_history": listofMessages,
         "summarization": summariazationMessage,
-        "semantic_search": sementicSearchResult
+        "contexts": sementicSearchResult
     }
 
 
